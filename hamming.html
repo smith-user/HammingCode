@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Hamming Code</title>
+		<script src="hamming.js"></script>
+	</head>
+	<body>
+		<h2>Hamming Code</h2>
+		
+		<p> <input type='text' id='inputData' size= '10' maxlength= '4' placeholder="input data"/>  </p>
+		<p> <input type='button' onclick= 'code()' value='Code' /> </p> 
+		<p> <input type='text' id= 'codedData' size= '10' maxlength= '7' placeholder="coded data"/> </p> 
+		<p> <input type='button' onclick= 'decode()' value='Decode' /> </p> 
+		<p> <input type='text' id= 'decodedData' size= '10' readonly placeholder="decoded data" /> </p> 
+		<p id= 'result'> </p>
+		<p id= 'lineWithCode'> </p>
+		<p id= 'cursor'> </p>
+	</body>
+</html>
