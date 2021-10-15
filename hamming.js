@@ -1,75 +1,108 @@
 function code() {
 	let message = document.getElementById('inputData').value;
-	let inputDigits = message.split('');
-	for (let i = 0; i < inputDigits.length; i++)
-		inputDigits[i] = parseInt(inputDigits[i]);
-	inputDigits.push(
-		(inputDigits[0] + inputDigits[2] + inputDigits[3]) % 2);
-	inputDigits.push(
-		(inputDigits[0] + inputDigits[1] + inputDigits[3]) % 2);
-	inputDigits.push(
-		(inputDigits[1] + inputDigits[2] + inputDigits[3]) % 2);
-	document.getElementById('codedData').value = inputDigits.join('');
+	let inputDigits = getIntArrayFromString(message);
+		
+	let countTestBit = 0;
+	let countInfBit = message.length;
+	// количество контрольных разрядов k должно удовлетворять неравенству 2^k >= k + m + 1, где m - длина исходного кодового слова
+	while(Math.pow(2, countTestBit) < countTestBit + countInfBit + 1) 
+		countTestBit++;
+	
+	let codedData = new Array(countTestBit + countInfBit);
+	let j = 0; // итератор по inputDigits
+	for(let i = 0; i < codedData.length; i++) {
+		// на позициях, номера которых представляют собой степени двойки, будут стоять проверочные биты
+		if (digreeOfTwo(i + 1))   
+			codedData[i] = 0;
+		else {
+			codedData[i] = inputDigits[j];
+			j++;
+		}
+	}
+	
+	let testBits = getTestBitsAndSyndrom(codedData, countTestBit);
+	for (let i = 0; i < testBits.length; i++) {
+		codedData[Math.pow(2, i) - 1] = testBits[i];
+	}
+	document.getElementById('codedData').value = codedData.join('');
+	clearFields('decodedData', 'result', 'lineWithCode', 'cursor');
 }
 			
 function decode() {
-	let arrayOfCircles = new Array(
-		new Circle(0, 2, 3, 4),
-		new Circle(0, 1, 3, 5),
-		new Circle(1, 2, 3, 6)
-	);
-	
-	for (let i = 0; i < 3; i++)
-		if (arrayOfCircles[i].sumInCircleIsEven())
-			arrayOfCircles[i].isNotSuspect();
 	let codedData = document.getElementById('codedData').value;
-	let decodeData = codedData.split('');
-	let badCell = getBadCell(arrayOfCircles[0].cells, arrayOfCircles[1].cells, arrayOfCircles[2].cells);
-	if (badCell != -1) {
-		decodeData[badCell] = Math.abs(codedData[badCell] - 1);
-		document.getElementById('result').innerHTML = 'Error found:';
-		document.getElementById('lineWithCode').innerHTML = `${codedData}`;
-		document.getElementById('cursor').innerHTML = `${'_'.repeat(badCell)}^${'_'.repeat(6-badCell)}`;
+	codedData = getIntArrayFromString(codedData);
+	
+	let countTestBit = 0;
+	while (Math.pow(2, countTestBit) < codedData.length + 1)
+		countTestBit++;
+	
+	let syndrom = getTestBitsAndSyndrom(codedData, countTestBit);
+	// матрица синдромов представляет собой двоичную запись (младший разряд в первом элементе) номера позиции, в которой произошла ошибка
+	let errorPosition = parseInt(syndrom.reverse().join(''), 2);
+	
+	if (errorPosition != 0) {
+		codedData[errorPosition - 1] = Math.abs(codedData[errorPosition - 1] - 1); // изменение бита, в котором произошла ошибка
+		document.getElementById('result').innerHTML = 'Error:';
+		document.getElementById('lineWithCode').innerHTML = `${codedData.join('')}`;
+		document.getElementById('cursor').innerHTML = 
+			`${'_'.repeat(errorPosition - 1)}^${'_'.repeat(codedData.length - errorPosition)} (${errorPosition})`;
 	} else {
 		document.getElementById('result').innerHTML = 'Error not found.';
-		document.getElementById('lineWithCode').innerHTML = '';
-		document.getElementById('cursor').innerHTML = '';
+		clearFields('lineWithCode', 'cursor');
 	}
-	document.getElementById('decodedData').value = decodeData.join('').substring(0, 4);
-}
-			
-function Circle(cell0, cell1, cell2, cell3)
-{
-	this.cells = new Array();
-	this.cells[cell0] = false;
-	this.cells[cell1] = false;
-	this.cells[cell2] = false;
-	this.cells[cell3] = false;
+	
+	let decodedData = new Array();
+	// Удаление контрольных разрядов
+	for(let i = 0; i < codedData.length; i++){
+		if (! digreeOfTwo(i + 1))
+			decodedData.push(codedData[i]);
+	}	
+	document.getElementById('decodedData').value = decodedData.join('');
 }
 
-Circle.prototype.sumInCircleIsEven = function () {
-	let amount = 0; 
-	let input = document.getElementById('codedData').value;
-	let inputDigits = input.split('');
-	for (cell in this.cells)
-		amount += parseInt(inputDigits[cell]);
-	return amount % 2 == 0;
+function digreeOfTwo(number) {
+	let bin = number.toString(2);
+	let sum = 0;
+	for (let d of bin)
+		sum += parseInt(d);
+	return sum == 1;
 }
 
-Circle.prototype.isNotSuspect = function () {
-	for (cell in this.cells)
-		this.cells[cell] = true;
+/*
+Алгоритм декодирования по Хэммингу абсолютно идентичен алгоритму кодирования.
+Поэтому в кодировании и декодировании используется одна и та же функция.
+Данная функция возвращает одномерный массив: 
+	- матрицу-столбец контрольных разрядов (используется при кодировании);
+	- матрицу-столбец синдромов (используется при декодировании)
+*/
+function getTestBitsAndSyndrom(inputDigits, countTestBits) {
+	let numbers = new Array(inputDigits.length);
+	let arrayResult = new Array(countTestBits);
+	for(let i = 0; i < numbers.length; i++)
+		numbers[i] = i + 1;
+	
+	let sumInLine = 0;
+	for(let i = 0; i < arrayResult.length; i++){
+		sumInLine = 0;
+		for (let j = 0; j < inputDigits.length; j++) {
+			sumInLine += (numbers[j] % 2) * inputDigits[j];
+			numbers[j] =  parseInt(numbers[j] / 2);
+		}
+		arrayResult[i] = sumInLine % 2;
 	}
+	return arrayResult;
+}
 
-function getBadCell(cells0, cells1, cells2) {
-	let badCell = -1;
-	let badCells = new Array();
-	for(let i = 0; i < 7; i++)
-		if ( !(cells0[i] || cells1[i] || cells2[i]) )
-			badCells.push(i);
-	if (badCells.length == 7) 
-		badCell = 3;
-	else if (badCells.length > 0)
-		badCell = Math.min.apply(null, badCells);
-	return badCell;
+function getIntArrayFromString(line) {
+	let arr = line.split('');
+	for (let i = 0; i < arr.length; i++)
+		arr[i] = parseInt(arr[i]);
+	return arr;
+}
+
+function clearFields() {
+	for(nameField of arguments) {
+		document.getElementById(nameField).value = '';
+		document.getElementById(nameField).innerHTML = '';
+	}
 }
